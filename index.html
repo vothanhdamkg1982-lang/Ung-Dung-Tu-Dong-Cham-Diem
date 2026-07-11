@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thầy Chấm - Ứng dụng chấm bài tự động bằng AI</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script async src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation Bar -->
+        <nav class="navbar">
+            <div class="navbar-brand">
+                <span class="logo-icon">📋</span>
+                <span class="logo-text">Thầy Chấm</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#" data-menu="dashboard" class="nav-link active">📊 Dashboard</a></li>
+                <li><a href="#" data-menu="answer-key" class="nav-link">✏️ Đáp án</a></li>
+                <li><a href="#" data-menu="upload" class="nav-link">📸 Upload bài</a></li>
+                <li><a href="#" data-menu="grading" class="nav-link">🎯 Chấm bài</a></li>
+                <li><a href="#" data-menu="results" class="nav-link">📈 Kết quả</a></li>
+                <li><a href="#" data-menu="stats" class="nav-link">📊 Thống kê</a></li>
+                <li><a href="#" data-menu="settings" class="nav-link">⚙️ Cài đặt</a></li>
+            </ul>
+            <div class="theme-toggle">
+                <button id="theme-btn" class="theme-btn" title="Chuyển đổi giao diện">🌙</button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard -->
+            <section id="dashboard" class="section active">
+                <h1>Dashboard</h1>
+                <div class="dashboard-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📝</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Tổng bài chấm</div>
+                            <div class="stat-value" id="total-graded">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Điểm trung bình</div>
+                            <div class="stat-value" id="avg-score">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏆</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Điểm cao nhất</div>
+                            <div class="stat-value" id="max-score">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📉</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Điểm thấp nhất</div>
+                            <div class="stat-value" id="min-score">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-charts">
+                    <div class="chart-container">
+                        <h3>Biểu đồ phân bố điểm</h3>
+                        <canvas id="score-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Lịch sử chấm</h3>
+                        <div id="grading-history" class="history-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Answer Key Management -->
+            <section id="answer-key" class="section">
+                <h1>Quản lý Đáp án</h1>
+                <div class="answer-key-container">
+                    <div class="section-group">
+                        <h2>1. Nhập đáp án</h2>
+                        <div class="answer-input-group">
+                            <button id="upload-answer-btn" class="btn btn-primary">📤 Upload tệp</button>
+                            <input type="file" id="answer-file-input" accept=".docx,.pdf,.txt" style="display:none">
+                            <button id="manual-answer-btn" class="btn btn-secondary">✍️ Nhập trực tiếp</button>
+                        </div>
+                    </div>
+
+                    <!-- Manual Answer Editor -->
+                    <div id="manual-answer-section" class="section-group" style="display:none;">
+                        <h2>Soạn thảo đáp án</h2>
+                        <div class="answer-editor">
+                            <div class="answer-question">
+                                <label>Câu hỏi:</label>
+                                <input type="text" class="question-input" placeholder="Nhập câu hỏi">
+                            </div>
+                            <div class="answer-content">
+                                <label>Đáp án:</label>
+                                <textarea class="answer-textarea" placeholder="Nhập đáp án"></textarea>
+                            </div>
+                            <div class="answer-points">
+                                <label>Điểm:</label>
+                                <input type="number" class="points-input" placeholder="1" min="0" max="100" value="1">
+                            </div>
+                            <button class="btn btn-secondary add-question-btn">➕ Thêm câu</button>
+                        </div>
+                        <button class="btn btn-primary save-answer-btn">💾 Lưu đáp án</button>
+                    </div>
+
+                    <!-- Answer Preview -->
+                    <div class="section-group">
+                        <h2>2. Xem trước đáp án</h2>
+                        <div id="answer-preview" class="answer-preview-container"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Upload Work Section -->
+            <section id="upload" class="section">
+                <h1>Upload Bài Làm</h1>
+                <div class="upload-container">
+                    <div class="upload-methods">
+                        <button id="webcam-btn" class="btn btn-primary">📷 Chụp từ webcam</button>
+                        <button id="upload-work-btn" class="btn btn-primary">📂 Chọn ảnh/PDF</button>
+                        <input type="file" id="work-file-input" accept="image/*,.pdf" multiple style="display:none">
+                    </div>
+
+                    <!-- Webcam Preview -->
+                    <div id="webcam-section" class="webcam-section" style="display:none;">
+                        <video id="video" class="video-preview"></video>
+                        <div class="webcam-controls">
+                            <button id="capture-btn" class="btn btn-primary">📸 Chụp</button>
+                            <button id="stop-webcam-btn" class="btn btn-secondary">❌ Dừng</button>
+                        </div>
+                    </div>
+
+                    <!-- Image Editor -->
+                    <div id="image-editor" class="image-editor" style="display:none;">
+                        <canvas id="editor-canvas"></canvas>
+                        <div class="image-controls">
+                            <button class="btn btn-secondary" data-action="rotate">🔄 Xoay</button>
+                            <button class="btn btn-secondary" data-action="crop">✂️ Cắt</button>
+                            <button class="btn btn-secondary" data-action="sharpen">🔍 Làm nét</button>
+                            <button class="btn btn-secondary" data-action="contrast">🎨 Tương phản</button>
+                            <button class="btn btn-secondary" data-action="remove-bg">🗑️ Xóa nền</button>
+                            <button id="confirm-image-btn" class="btn btn-primary">✅ Xác nhận</button>
+                        </div>
+                    </div>
+
+                    <!-- Uploaded Items -->
+                    <div id="uploaded-items" class="uploaded-items"></div>
+                </div>
+            </section>
+
+            <!-- Grading Section -->
+            <section id="grading" class="section">
+                <h1>Chấm Bài Tự Động</h1>
+                <div class="grading-container">
+                    <div class="section-group">
+                        <h2>Cài đặt chấm điểm</h2>
+                        <div class="grading-settings">
+                            <label>Mức độ nghiêm khắc:</label>
+                            <div class="severity-selector">
+                                <label><input type="radio" name="severity" value="easy"> Dễ</label>
+                                <label><input type="radio" name="severity" value="medium" checked> Trung bình</label>
+                                <label><input type="radio" name="severity" value="hard"> Nghiêm</label>
+                            </div>
+                            <label>Ngưỡng tương đồng: <span id="similarity-value">75</span>%</label>
+                            <input type="range" id="similarity-threshold" min="30" max="100" value="75" class="slider">
+                        </div>
+                    </div>
+
+                    <div class="section-group">
+                        <button id="start-grading-btn" class="btn btn-primary" style="width:100%; padding: 15px; font-size: 16px;">🎯 Bắt đầu chấm bài</button>
+                    </div>
+
+                    <!-- Grading Progress -->
+                    <div id="grading-progress" class="section-group" style="display:none;">
+                        <h3>Đang xử lý...</h3>
+                        <div class="progress-bar">
+                            <div id="progress-fill" class="progress-fill"></div>
+                        </div>
+                        <p id="progress-text">Đang nhận dạng văn bản...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section id="results" class="section">
+                <h1>Kết Quả Chấm</h1>
+                <div class="results-container">
+                    <div id="no-results" class="empty-state">
+                        <p>📭 Chưa có kết quả. Hãy chấm bài để xem kết quả.</p>
+                    </div>
+                    <div id="results-content" style="display:none;">
+                        <div class="overall-score">
+                            <div class="score-circle">
+                                <div id="final-score" class="score-text">0</div>
+                                <div class="score-label">/ 10</div>
+                            </div>
+                            <div class="score-details">
+                                <p id="result-feedback"></p>
+                            </div>
+                        </div>
+
+                        <div class="results-grid">
+                            <div id="results-details" class="section-group"></div>
+                            <div class="section-group">
+                                <h3>Nhận xét từ AI</h3>
+                                <div id="ai-feedback" class="feedback-editor" contenteditable="true"></div>
+                                <button id="save-feedback-btn" class="btn btn-primary">💾 Lưu kết quả</button>
+                            </div>
+                        </div>
+
+                        <div class="section-group">
+                            <h3>Xuất kết quả</h3>
+                            <div class="export-buttons">
+                                <button id="export-pdf-btn" class="btn btn-secondary">📄 PDF</button>
+                                <button id="export-excel-btn" class="btn btn-secondary">📊 Excel</button>
+                                <button id="export-word-btn" class="btn btn-secondary">📝 Word</button>
+                                <button id="print-btn" class="btn btn-secondary">🖨️ In</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Statistics Section -->
+            <section id="stats" class="section">
+                <h1>Thống Kê</h1>
+                <div class="stats-container">
+                    <div class="section-group">
+                        <h2>Phân tích kết quả</h2>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-label">Tỷ lệ đạt</div>
+                                <div class="stat-value" id="pass-rate">0%</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Tỷ lệ chưa đạt</div>
+                                <div class="stat-value" id="fail-rate">0%</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Câu sai nhiều nhất</div>
+                                <div class="stat-value" id="most-wrong-question">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-group">
+                        <h3>Biểu đồ chi tiết</h3>
+                        <canvas id="stats-chart"></canvas>
+                    </div>
+
+                    <div class="section-group">
+                        <h3>Từ khóa thiếu sót</h3>
+                        <div id="missing-keywords" class="keywords-cloud"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settings" class="section">
+                <h1>Cài Đặt</h1>
+                <div class="settings-container">
+                    <div class="section-group">
+                        <h2>Quản lý dữ liệu</h2>
+                        <div class="settings-options">
+                            <button id="backup-btn" class="btn btn-secondary">💾 Sao lưu dữ liệu</button>
+                            <button id="restore-btn" class="btn btn-secondary">📂 Khôi phục dữ liệu</button>
+                            <button id="clear-btn" class="btn btn-danger">🗑️ Xóa tất cả dữ liệu</button>
+                            <input type="file" id="restore-file-input" accept=".json" style="display:none">
+                        </div>
+                    </div>
+
+                    <div class="section-group">
+                        <h2>Thông tin ứng dụng</h2>
+                        <div class="app-info">
+                            <p><strong>Phiên bản:</strong> 1.0.0</p>
+                            <p><strong>Dung lượng:</strong> <span id="storage-size">0 MB</span></p>
+                            <p><strong>Trình duyệt:</strong> <span id="browser-info">-</span></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loading-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="spinner"></div>
+            <p id="loading-text">Đang xử lý...</p>
+        </div>
+    </div>
+
+    <!-- Import Scripts -->
+    <script src="utils.js"></script>
+    <script src="storage.js"></script>
+    <script src="ocr.js"></script>
+    <script src="grading.js"></script>
+    <script src="charts.js"></script>
+    <script src="export.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
