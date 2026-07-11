@@ -213,33 +213,40 @@ const ImageProcessor = {
     },
 
     /**
-     * Sharpen image
+     * Sharpen image - simplified version
      */
     sharpenImage(canvas) {
         const ctx = canvas.getContext('2d');
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
+        const width = canvas.width;
+        const height = canvas.height;
         
-        const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
-        const side = Math.round(Math.sqrt(kernel.length));
-        const half = Math.floor(side / 2);
+        // Simple unsharp mask
+        const temp = new Uint8ClampedArray(data);
         
-        for (let i = half * canvas.width * 4 + half * 4; i < data.length - half * canvas.width * 4 - half * 4; i += 4) {
-            let r = 0, g = 0, b = 0;
-            
-            for (let j = 0; j < kernel.length; j++) {
-                const x = (i / 4 + j % side - half) % canvas.width;
-                const y = Math.floor(i / 4 / canvas.width) + Math.floor(j / side) - half;
-                const idx = (y * canvas.width + x) * 4;
+        for (let i = 0; i < height; i++) {
+            for (let j = 0; j < width; j++) {
+                if (i === 0 || i === height - 1 || j === 0 || j === width - 1) continue;
                 
-                r += data[idx] * kernel[j];
-                g += data[idx + 1] * kernel[j];
-                b += data[idx + 2] * kernel[j];
+                const idx = (i * width + j) * 4;
+                
+                // Get surrounding pixels
+                const neighbors = [
+                    (i - 1) * width + j,
+                    (i + 1) * width + j,
+                    i * width + (j - 1),
+                    i * width + (j + 1)
+                ].map(n => n * 4);
+                
+                for (let c = 0; c < 3; c++) {
+                    const center = temp[idx + c];
+                    let sum = neighbors.reduce((s, n) => s + temp[n + c], 0) / 4;
+                    
+                    // Simple sharpening: amplify difference
+                    data[idx + c] = Math.min(255, Math.max(0, center + (center - sum) * 1.5));
+                }
             }
-            
-            data[i] = Math.min(255, Math.max(0, r));
-            data[i + 1] = Math.min(255, Math.max(0, g));
-            data[i + 2] = Math.min(255, Math.max(0, b));
         }
         
         ctx.putImageData(imageData, 0, 0);
@@ -247,20 +254,38 @@ const ImageProcessor = {
     },
 
     /**
-     * Remove background (simple white background removal)
+     * Remove background (better white/light background removal)
      */
     removeBackground(canvas) {
         const ctx = canvas.getContext('2d');
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
         
+        // Calculate average brightness to determine threshold
+        let totalBrightness = 0;
+        let pixelCount = 0;
+        
         for (let i = 0; i < data.length; i += 4) {
             const r = data[i];
             const g = data[i + 1];
             const b = data[i + 2];
+            const brightness = (r + g + b) / 3;
+            totalBrightness += brightness;
+            pixelCount++;
+        }
+        
+        const avgBrightness = totalBrightness / pixelCount;
+        const threshold = Math.max(200, avgBrightness + 30);
+        
+        // Remove light pixels
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const brightness = (r + g + b) / 3;
             
-            // If pixel is white or very light
-            if (r > 240 && g > 240 && b > 240) {
+            // If pixel is light (above threshold)
+            if (brightness > threshold) {
                 data[i + 3] = 0; // Make transparent
             }
         }

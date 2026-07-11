@@ -434,26 +434,62 @@ const App = {
 
         document.querySelectorAll('[data-action]').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const action = e.target.dataset.action;
-                const canvas = document.getElementById('editor-canvas');
-                
-                switch(action) {
-                    case 'rotate':
-                        const rotated = ImageProcessor.rotateImage(canvas, 90);
-                        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                        canvas.width = rotated.width;
-                        canvas.height = rotated.height;
-                        canvas.getContext('2d').drawImage(rotated, 0, 0);
-                        break;
-                    case 'contrast':
-                        ImageProcessor.adjustContrast(canvas, 1.5);
-                        break;
-                    case 'sharpen':
-                        ImageProcessor.sharpenImage(canvas);
-                        break;
-                    case 'remove-bg':
-                        ImageProcessor.removeBackground(canvas);
-                        break;
+                try {
+                    const action = e.target.dataset.action;
+                    const canvas = document.getElementById('editor-canvas');
+                    
+                    if (!canvas || canvas.width === 0 || canvas.height === 0) {
+                        Utils.notify('Không có ảnh để xử lý', 'warning');
+                        return;
+                    }
+                    
+                    Utils.showLoading('Đang xử lý ảnh...');
+                    
+                    switch(action) {
+                        case 'rotate':
+                            try {
+                                const rotated = ImageProcessor.rotateImage(canvas, 90);
+                                canvas.width = rotated.width;
+                                canvas.height = rotated.height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                ctx.drawImage(rotated, 0, 0);
+                                Utils.notify('Xoay ảnh thành công', 'success');
+                            } catch (err) {
+                                Utils.notify('Lỗi xoay ảnh', 'error');
+                            }
+                            break;
+                        case 'contrast':
+                            try {
+                                ImageProcessor.adjustContrast(canvas, 1.5);
+                                Utils.notify('Tăng tương phản thành công', 'success');
+                            } catch (err) {
+                                Utils.notify('Lỗi tăng tương phản', 'error');
+                            }
+                            break;
+                        case 'sharpen':
+                            try {
+                                ImageProcessor.sharpenImage(canvas);
+                                Utils.notify('Làm nét ảnh thành công', 'success');
+                            } catch (err) {
+                                Utils.notify('Lỗi làm nét ảnh', 'error');
+                            }
+                            break;
+                        case 'remove-bg':
+                            try {
+                                ImageProcessor.removeBackground(canvas);
+                                Utils.notify('Xóa nền thành công', 'success');
+                            } catch (err) {
+                                Utils.notify('Lỗi xóa nền', 'error');
+                            }
+                            break;
+                    }
+                    
+                    Utils.hideLoading();
+                } catch (err) {
+                    console.error('Image processing error:', err);
+                    Utils.notify('Lỗi xử lý ảnh', 'error');
+                    Utils.hideLoading();
                 }
             });
         });
